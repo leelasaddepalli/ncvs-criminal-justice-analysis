@@ -4,6 +4,9 @@
 
 ---
 
+Research report linked here (https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project.pdf)
+Slide deck linked here (https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project%20Presentation.pdf)
+
 ## Overview
 
 This project analyzes the 2023 **National Crime Victimization Survey (NCVS)** — a federal survey conducted annually by the Bureau of Justice Statistics — to examine how gender relates to the likelihood and intensity of violent personal crime victimization in the United States.
