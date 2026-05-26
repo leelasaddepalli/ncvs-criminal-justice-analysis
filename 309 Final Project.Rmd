@@ -1,0 +1,793 @@
+---
+title: "309 Final Project"
+authors: "Leela Addepalli and Faith Sconing"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Criminal Justice Data Analysis
+
+### Initial Disclaimer
+
+The contents and conclusions of this study are limited in its scope, in part due to the rudimentary knowledge of exploratory data analysis of the researchers, as well as restricted time and resources to conduct analysis. Furthermore, the hypotheses and research direction are likely biased by the identities of the researchers, who are both educated women and are not representative of the diverse sample of respondents in this study. Lastly, this study only looks at a snapshot of data from one single year, 2023, and the incident variables picked out are only a small subset of the 1261 available variables - which is expanded upon in a larger ethical reflection below - but is important to recognize as a limitation before drawing any conclusions from the selected data. 
+
+
+```{r message=FALSE, warning=FALSE}
+
+load("~/CBSC 309/Criminal Justice Project/ICPSR_38962/DS0003/38962-0003-Data.rda")
+
+
+
+load("~/CBSC 309/Criminal Justice Project/ICPSR_38962/DS0004/38962-0004-Data.rda")
+
+
+library(tidyverse)
+library(psych)
+library(yarrr)
+
+```
+
+## Dataset Description
+
+The National Crime Victimization Survey (NCVS) has collected annual data on personal and property crime since 1973. This survey is conducted by the Bureau of Justice Statistics, and each respondent is asked a series of screen questions designed to determine whether they were victimized during the six month period preceding the first day of the month of the interview. This version of the NCVS, referred to as the collection year, contains records from interviews conducted in the 12 months of the given year, 2023.
+
+The NCVS file extracted from the National Archive of Criminal Justice Data (NACJD) website contains the following four datasets. 
+First, the “Address Record” dataset which contains household addresses, year, sample number and person ID - 255,901 observations. 
+Second, the “Household Record” dataset contains the same variables as the address record, in addition to information about land ownership, usage, residents, physical attributes etc. and has 254,071 observations. 
+Third, the “Person Record” dataset contains demographic information of the participant, including variables of interest like race, sex, gender and educational achievement of the participant. 
+Lastly, the “Incident Record” dataset contains information about the nature of the incident, or criminal activity, as well as pre and post data such as perceived cause, injuries, impact of incident on work, health, etc. This dataset contains 9324 observations.
+
+This study selected the “Person Record” and “Incident Record” datasets to analyze. 
+The survey categorizes crimes as “personal” or “property”. Personal crimes include rape and sexual attack, robbery, aggravated and simple assault and purse-snatching/pocket-picking, white property crimes include burglary, theft, motor vehicle theft and vandalism. We will focus on personal crime to answer the question - *how does gender affect the likelihood of being a victim of violent personal crime?* It is important to note that this data codes gender as a binary value (Male and Female) rather than as it exists on a spectrum in reality.
+
+
+
+```{r message=FALSE, warning=FALSE}
+
+person_data <- da38962.0003 %>% 
+  select(IDPER,
+         V3018,
+         V3085,
+         V3086,
+         V3020,
+         V3023A,
+         V3024)
+
+```
+
+
+```{r message = FALSE, warning = FALSE}
+incident_data <- da38962.0004 %>%
+  select(IDPER,
+         V4012, 
+         V4016,
+         V4247,
+         V4097,
+         V4100,
+         V4102,
+         V4103,
+         V4104,
+         V4109,
+         V4105,
+         V4106,
+         V4094,
+         V4096,
+         V4069,
+         V4084,
+         V4086,
+         V4087,
+         V4088,
+         V4079,
+         V4090,
+         V4080,
+         V4089,
+         V4078,
+         V4095,
+         V4081,
+         V4082)
+
+dataset <-  full_join(person_data, incident_data, join_by(IDPER), relationship = "many-to-many")
+  
+
+dataset_rename <- dataset %>%
+  rename("Sex Allocated" = V3018,
+         "Gender at Birth" = V3085,
+         "Gender Current" = V3086,
+         "Educational Attainment" = V3020,
+         "Race Recoded" = V3023A,
+         "Incident Number" = V4012, 
+         "How Many Incidents" = V4016,
+         "Single Off Crime" = V4247,
+         "Shot" = V4097,
+         "Stabbed with Knife" = V4100,
+         "Hit with Handheld Object" = V4102,
+         "Hit with Thrown Object" = V4103,
+         "Attack W Other Weapon" = V4104,
+         "Threat and Attack" = V4109,
+         "Battery: Hit or Slap" = V4105,
+         "Battery: Grab or Trip" = V4106,
+         "Raped" = V4094,
+         "Sexual Assault" = V4096,
+         "Sexual Contact w Force" = V4069,
+         "Hispanic" = V3024) %>% 
+  mutate("How Many Incidents" = 
+           ifelse(`How Many Incidents` > 6, 6, `How Many Incidents`)) %>%
+  mutate(`Race Recoded` = substr(`Race Recoded`, 2,3))
+
+
+dataset_rename <- dataset_rename %>% 
+  mutate(`Race Recoded` = ifelse(`Race Recoded` == "01", 'White', `Race Recoded`))%>%
+  mutate(`Race Recoded` = ifelse(`Race Recoded` == "02", 'Black', `Race Recoded`)) %>%
+  mutate(`Race Recoded` = ifelse(`Race Recoded` == "05" , 'Native', `Race Recoded`)) %>%
+  mutate(`Race Recoded` = ifelse(`Hispanic` == "(1) Yes", "Hispanic", `Race Recoded`)) %>%
+  mutate(`Race Recoded` = ifelse(`Race Recoded` == "03", "Native", `Race Recoded`)) %>% 
+  mutate(`Race Recoded` = ifelse(`Race Recoded` == "04" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "06" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "07" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "08" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "09" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "10" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "11" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "12" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "13" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "14" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "15" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "16" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "17" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "18" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "19" , 'Mixed', `Race Recoded`)) %>%
+   mutate(`Race Recoded` = ifelse(`Race Recoded` == "20" , 'Mixed', `Race Recoded`))
+
+```
+
+
+
+## Incidents Variable Model:
+
+On reviewing the codebook we decided to join together 22 categorical variables that were measured on a yes/no/NA scale to form larger continuous variables that could be analyzed. The continuous variables were named in accordance with the language used in the field of criminal justice, and are made up of the following categorical variables.
+
+### 1. Attempted Aggravated Battery
+
+i. Attempt with weapon present 
+ii. Attempt with knife 
+iii. Attempt with other weapon 
+iv. Attempt: Object Thrown 
+v. Attempt: Threat to Kill
+
+### 2. Attempted Battery/Other
+
+i. Attempt: Hit, Grab, Jump
+ii. Attempt: Other
+iii. Attempt: Followed or Surrounded
+
+### 3. Attempted Sexual Crime
+
+i. Attempt: Threat of rape
+ii. Attempt: Threat of Sexual Assault
+iii. Attempt: Sex Contact with Force
+
+
+```{r message=FALSE, warning=FALSE}
+## Attempted Aggravated Battery
+
+dataset_1 <- dataset %>%
+  mutate(V4079 = na_if(V4079, "(8) Residue"),
+         V4079 = ifelse(V4079 == '(1) Yes', 1, 0)) %>%
+  mutate(V4084 = na_if(V4084, "(8) Residue"),
+         V4084 = ifelse(V4084 == '(1) Yes', 1, 0)) %>%
+   mutate(V4086 = na_if(V4086, "(8) Residue"),
+         V4086 = ifelse(V4086 == "(1) Yes", 1, 0)) %>%
+  mutate(V4087 = na_if(V4087, "(8) Residue"),
+         V4087 = ifelse(V4087 == "(1) Yes", 1, 0)) %>%
+   mutate(V4088 = na_if(V4088, "(8) Residue"), 
+         V4088 = ifelse(V4088 == "(1) Yes", 1, 0))
+
+
+dataset_1 <- dataset_1 %>%
+  mutate(sum_1 = V4079 + V4084 + V4086 + V4087 + V4088) %>%
+  mutate(att_agg_batt_avg = sum_1/5)
+
+dataset_1A <- dataset_1 %>%
+  select(-V4079,
+         -V4084,
+         -V4086,
+         -V4087,
+         -V4088,
+         -sum_1)
+
+## Attempted Battery
+
+dataset_2 <- dataset_1A %>%
+  mutate(V4090 = na_if(V4090, "(8) Residue"),
+         V4090 = ifelse(V4090 == '(1) Yes', 1, 0)) %>%
+  mutate(V4080 = na_if(V4080, "(8) Residue"),
+         V4080 = ifelse(V4080 == '(1) Yes', 1, 0)) %>%
+  mutate(V4089 = na_if(V4089, "(8) Residue"),
+         V4089 = ifelse(V4089 == '(1) Yes', 1, 0))
+  
+dataset_2 <- dataset_2 %>%
+  mutate(sum_1 = V4089 + V4090 + V4080) %>%
+  mutate(att_batt_avg = sum_1/3)
+
+dataset_2A <- dataset_2 %>%
+  select(-V4089,
+         -V4080,
+         -V4090,
+         -sum_1)
+
+## Attempted Sexual Crime
+
+dataset_3 <- dataset_2 %>%
+  mutate(V4078 = na_if(V4078, "(8) Residue"),
+         V4078 = ifelse(V4078 == '(1) Yes', 1, 0)) %>%
+  mutate(V4081 = na_if(V4081, "(8) Residue"),
+         V4081 = ifelse(V4081 == '(1) Yes', 1, 0)) %>%
+  mutate(V4082 = na_if(V4082, "(8) Residue"),
+         V4082 = ifelse(V4082 == '(1) Yes', 1, 0))
+  
+dataset_3 <- dataset_3 %>%
+  mutate(sum_1 = V4078 + V4081 + V4082) %>%
+  mutate(att_SA_avg = sum_1/3)
+
+dataset_3A <- dataset_3 %>%
+  select(-V4078,
+         -V4081,
+         -V4082,
+         -sum_1)
+
+
+```
+
+### 4. Aggravated Battery
+i. Shot
+ii. Stabbed/Cut with Knife
+iii. Hit by Object held in hand
+iv. Hit by Thrown Object
+v. Attack with Other Weapon
+vi. Threat and then Attack
+
+### 5. Battery
+i. Hit, slapped, knocked down
+ii. Grabbed, held, tripped etc.
+
+### 6. Sexual Crime
+i. Rape
+ii. Sexual Assault
+iii. Tried to rape
+
+
+```{r message = FALSE, warning = FALSE}
+
+## Aggravated Battery
+
+dataset_4 <- dataset_3A %>%
+  mutate(V4097 = na_if(V4097, "(8) Residue"),
+         V4097 = ifelse(V4097 == '(1) Yes', 1, 0)) %>%
+  mutate(V4100 = na_if(V4100, "(8) Residue"),
+         V4100 = ifelse(V4100 == '(1) Yes', 1, 0)) %>%
+  mutate(V4102 = na_if(V4102, "(8) Residue"),
+         V4102 = ifelse(V4102 == '(1) Yes', 1, 0)) %>%
+  mutate(V4103 = na_if(V4103, "(8) Residue"),
+         V4103 = ifelse(V4103 == '(1) Yes', 1, 0)) %>%
+  mutate(V4104 = na_if(V4104, "(8) Residue"),
+         V4104 = ifelse(V4104 == '(1) Yes', 1, 0)) %>%
+  mutate(V4109 = na_if(V4109, "(8) Residue"),
+         V4109 = ifelse(V4109 == '(1) Yes', 1, 0))
+  
+dataset_4 <- dataset_4 %>%
+  mutate(sum_1 = V4097 + V4100 + V4102 + V4103 + V4104 + V4109) %>%
+  mutate(agg_bat_avg = sum_1/6)
+  
+dataset_4A <- dataset_4 %>%
+  select(-V4097,
+         -V4100,
+         -V4102,
+         -V4103,
+         -V4104,
+         -V4109,
+         -sum_1)
+  
+## Battery
+dataset_5 <- dataset_4A %>%
+  mutate(V4105 = na_if(V4105, "(8) Residue"),
+         V4105 = ifelse(V4105 == '(1) Yes', 1, 0)) %>%
+  mutate(V4106 = na_if(V4106, "(8) Residue"),
+         V4106 = ifelse(V4106 == '(1) Yes', 1, 0))
+
+dataset_5 <- dataset_5 %>%
+  mutate(sum_1 = V4105 + V4106) %>%
+  mutate(bat_avg = sum_1/2)
+  
+dataset_5A <- dataset_5 %>%
+  select(-V4105,
+         -V4106,
+         -sum_1)
+
+## Sexual Crimes
+
+dataset_6 <- dataset_5A %>%
+  mutate(V4094 = na_if(V4094, "(8) Residue"),
+         V4094 = ifelse(V4094 == '(1) Yes', 1, 0)) %>%
+  mutate(V4095 = na_if(V4095, "(8) Residue"),
+         V4095 = ifelse(V4095 == '(1) Yes', 1, 0)) %>%
+  mutate(V4096 = na_if(V4096, "(8) Residue"),
+         V4096 = ifelse(V4096 == '(1) Yes', 1, 0))
+
+
+dataset_6 <- dataset_6 %>%
+  mutate(sum_1 = V4094 + V4096 + V4095 ) %>%
+  mutate(SA_avg = sum_1/3)
+  
+dataset_6A <- dataset_6 %>%
+  select(-V4094,
+         -V4096,
+         -V4095,
+         -V4069,
+         -sum_1)
+
+```
+
+## Data visualisation
+
+### Number of Incidents ~ Sex
+
+The Incidents plots show the frequency with which a respondent reported being victim of a violent personal crime a given number of times. In the data, the maximum number of instances of victimization a victim could report was 10+, however, due to the scarcity of responses in the higher numbers of incident responses, we decided to aggregate victims who had been victimized 6 or more times in the 6 (and greater) category. 
+
+The first bar graph shows the raw frequency of each response separated by binary gender. Raw frequency scales from 0 to greater than 6000, given that there were almost 280,000 observations our dataset. 
+The graph is skewed towards the bottom, meaning that there are much more people who experience less than 3 victimizations than those who experience more than 3 victimizations, regardless of gender. Women are slightly more likely to have experienced 1, 2, or 3 victimizations. In victims above 3 victimizations, it seems there is no difference in responses between males and females.
+
+The second bar graph shows the raw frequency of each response separated by race. 
+This graph is also skewed towards the bottom, meaning that there are much more people who experience less than 3 victimizations than those who experience more than 3 victimizations, regardless of gender. Across the scale, white people reported a higher frequency of victimizations, followed by hispanic and black people. This does not indicate that white people have a higher likelihood of being victims, more that this sample has an overrepresentation of white respondents as compared to black, hispanic, native american or mixed race respondents. This is further evidenced in the subsequent pirateplot that shows a summary view of incidents, where white people report about the same number of incidents as other races, and native american respondents report a slightly higher number of incidents, although the relatively wide error margins around the mean imply that this is not reliable.
+
+```{r}
+
+incident_plot <-ggplot(dataset_rename, 
+                       aes(x = `How Many Incidents`, 
+                           fill = `Sex Allocated`))+  
+  geom_bar(stat = "count", 
+           position = position_dodge()) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', '(2) Female' = 'pink')) +
+  scale_x_continuous(breaks = round(seq(min(0), max(6), by = 1),1)) + 
+  xlab("Number of Incidents by Gender") + 
+  ylab("Frequency")
+
+incident_plot
+
+race_plot <-ggplot(dataset_rename, 
+                       aes(x = `How Many Incidents`, 
+                           fill = `Race Recoded`))+  
+  geom_bar(stat = "count", 
+           position = position_dodge()) +
+  scale_fill_manual('Legend', 
+                    values = c('White' = 'dodgerblue', 'Black' = 'purple', 'Native' = 'red', 'Hispanic' = 'green', 'Mixed' = 'hotpink')) +
+  scale_x_continuous(breaks = round(seq(min(0), max(6), by = 1),1)) + 
+  xlab("Number of Incidents by Race") + 
+  ylab("Frequency")
+
+race_plot
+
+pirateplot(`How Many Incidents` ~ `Race Recoded` , data = dataset_rename)
+```
+
+Considering the great disparity between the representation of the many different races in our sample, we decided to focus on sex for the next part of our analysis since there is a more equal number of male and female respondents.
+
+### Density Concentration of Attempted Aggravated Battery ~ Sex
+
+The attempted battery plots show the difference in the average intensity of attempted aggravated battery on victims between genders. Average intensity is defined as the mean value of attempted aggravated battery instances (which itself is an average of multiple values), rounded to three decimal places. That is, the intensity of victimisation - how likely is that a respondent was victim to one or more instances of attempted aggravated battery.
+
+The bar plot shows that the average intensity is greater for males (.10) than for females (.09) This would mean that male victims experience attempted aggravated battery more intensely than women. However, this difference is not statistically significant. We checked the probability of superiority statistic, which tells us the percentage that someone picked at random from the Male group will have a higher average intensity of attempted aggravated battery than someone picked from the Female group. The probability of superiority was 0.52 with a 95% confidence interval ranging from [0.50, 0.55]. Because the confidence interval is so close to 0.50 (indicating a coin-flip chance) we cannot be confident that a victim of attempted aggravated battery of one gender is more likely to have a more intense victimization than the other gender. Essentially, it is a 50/50 chance that a victim that experiences a more intense attempted battery is of one gender over the other. 
+
+We can see the same uncertainty in the pirateplot(). This plot shows that the spread of the intensity of attempted battery is extremely similar between male victims and female victims. Both genders have the majority of their responses around 0 and 0.2 intensity, and both taper off equally as the intensity increases, all the way up to 0.6. Also, the error bars around the means of each gender overlap, which means we cannot say for certain that the mean of one gender’s intensity of attempted aggravated battery victimization is greater than the other gender. Therefore, we cannot conclude that males experience a more intense attempted aggravated battery than females.
+
+
+```{r}
+
+library(effectsize)
+
+att_agg_batt_lay <- 
+  dataset_1%>% 
+  select(V3018, att_agg_batt_avg) %>% 
+  na.omit() %>% 
+  group_by(V3018) %>%
+  summarize(att_agg_batt_avg = mean(att_agg_batt_avg))
+
+att_agg_batt_lay$att_agg_batt_avg <- round(att_agg_batt_lay$att_agg_batt_avg, digits = 3)
+
+ggplot(data = att_agg_batt_lay, 
+       aes(V3018, att_agg_batt_avg, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', '(2) Female' = 'pink')) +
+  geom_text(aes(label = att_agg_batt_avg), 
+            position = position_dodge(), 
+            vjust=-0.25) + xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Attempted Aggrevated Battery by Gender")
+
+p_superiority(att_agg_batt_avg ~ V3018, data = dataset_1)
+#0.52, [0.50, 0.55]
+
+pirateplot(att_agg_batt_avg ~ V3018, data = dataset_1)
+
+```
+
+### Density Concentration of Attempted Battery ~ Sex
+
+The attempted battery plots show the difference in the average intensity of attempted battery on victims between genders. Average intensity is defined as the mean value of attempted battery instances (which itself is an average of multiple values), rounded to three decimal places. That is, the intensity of victimisation - how likely is that a respondent was victim to one or more instances of attempted battery.
+
+The bar plot shows that the average intensity is greater for males (.23) than for females (.231). This would mean that male victims experience attempted battery more intensely than women. However, this difference is not statistically significant. We checked the probability of superiority statistic, which tells us the percentage that someone picked at random from the Male group will have a higher average intensity of attempted battery than someone picked from the Female group. The probability of superiority was 0.50 with a 95% confidence interval ranging from [0.48, 0.53]. Because the confidence interval is so close to 0.50 (indicating a coin-flip chance) we cannot be confident that a victim of attempted battery of one gender is more likely to have a more intense victimization than the other gender.
+
+We can see the same uncertainty in the pirateplot(). This plot shows that the spread of the intensity of attempted battery is extremely similar between male victims and female victims. Both genders have the majority of their responses around 0.2 and 0.4 intensity, and both taper off equally as the intensity increases, all the way up to 1. Also, the error bars around the means of each gender overlap, which means we cannot say for certain that the mean of one gender’s intensity of attempted battery victimization is greater than the other gender. Therefore, we cannot conclude that males experience a more intense attempted battery than females.
+
+
+
+```{r}
+
+att_batt_lay <- 
+  dataset_2 %>% select(V3018, att_batt_avg) %>% 
+  na.omit() %>% 
+  group_by(V3018) %>%
+  summarize(att_battery_mean = mean(att_batt_avg))
+
+att_batt_lay$att_battery_mean <- round(att_batt_lay$att_battery_mean, digits = 3)
+
+ggplot(data = att_batt_lay, 
+       aes(V3018, att_battery_mean, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', 
+                               '(2) Female' = 'pink',
+                               '(3) Transgender' = 'purple')) +
+  geom_text(aes(label = att_battery_mean), 
+            position = 'dodge', vjust=-0.25) + 
+  xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Attempted Sexual Assault by Gender")
+
+p_superiority(att_batt_avg ~ V3018, data = dataset_2)
+#0.50, [0.48, 0.53]
+
+pirateplot(att_batt_avg ~ V3018, data = dataset_2)
+
+
+```
+
+### Density Concentration of Attempted Sexual Assault ~ Sex
+
+The attempted sexual assault plots show the difference in the average intensity of attempted battery on victims between genders. 
+
+The bar plot shows that the average intensity is greater for females (.02) than for females (.007). This would mean that female victims experience attempted sexual assault more intensely than men However, this difference is not statistically significant. We checked the probability of superiority statistic, which tells us the percentage that someone picked at random from the Male group will have a higher average intensity of attempted battery than someone picked from the Female group. The probability of superiority was 0.45 with a 95% confidence interval ranging from [0.42, 0.47]. Because the confidence interval is so close to 0.50 (indicating a coin-flip chance) we cannot be confident that a victim of attempted battery of one gender is more likely to have a more intense victimization than the other gender.
+
+We can see the same uncertainty in the pirateplot(). This plot shows that the spread of the intensity of attempted battery is extremely similar between male victims and female victims. Both genders have the majority of their responses around 0 and 0.04 intensity, and both taper off equally as the intensity increases, up to .36 - all of which are minuscule values. Also, the error bars around the means of each gender overlap, which means we cannot say for certain that the mean of one gender’s intensity of attempted sexual assault victimization is greater than the other gender. Therefore, we cannot conclude that females experience a more intense attempted sexual assault than females.
+
+```{r}
+
+fem_SA_lay <- dataset_3 %>% 
+  select(V3018, att_SA_avg) %>% 
+  na.omit() %>% 
+  group_by(V3018) %>%
+  summarize(SA_mean = mean(att_SA_avg))
+
+fem_SA_lay$SA_mean <- round(fem_SA_lay$SA_mean, digits = 3)
+
+ggplot(data = fem_SA_lay, 
+       aes(V3018, SA_mean, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', '(2) Female' = 'pink')) +
+  geom_text(aes(label = SA_mean), 
+            position = 'dodge', vjust=-0.25) + 
+  xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Attempted Sexual Assault by Gender")
+
+p_superiority(att_SA_avg ~ as_factor(V3018), data = dataset_3)
+#.45 [.42, .47]
+
+pirateplot(att_SA_avg ~ V3018, data = dataset_3)
+
+
+
+```
+
+### Density Concentration of Aggravated Battery ~ Sex
+
+The aggravated battery plots show the difference in the average intensity of  aggravated battery on victims between genders.
+
+The bar plot shows that the average intensity is greater for males (.09) than for females (.07) This would mean that male victims experience  aggravated battery more intensely than women. However, this difference is not statistically significant. We checked the probability of superiority statistic, which tells us the percentage that someone picked at random from the Male group will have a higher average intensity of aggravated battery than someone picked from the Female group. The probability of superiority was 0.56 with a 95% confidence interval ranging from [0.53, 0.60]. Because the confidence interval is so close to 0.50 (indicating a coin-flip chance) we cannot be confident that a victim of aggravated battery of one gender is more likely to have a more intense victimization than the other gender. 
+
+We can see the same uncertainty in the pirateplot(). This plot shows that the spread of the intensity of aggravated battery is extremely similar between male victims and female victims. Both genders have the majority of their responses around 0 and 0.24 intensity, and both taper off equally as the intensity increases, up to 0.52. Also, the error bars around the means of each gender overlap, which means we cannot say for certain that the mean of one gender’s intensity of aggravated battery victimization is greater than the other gender. Therefore, we cannot conclude that males experience a more intense aggravated battery than females.
+
+
+```{r}
+
+agg_batt_lay <- dataset_4 %>% 
+  select(V3018, agg_bat_avg) %>% 
+  na.omit() %>% group_by(V3018) %>%
+  summarize(agg_batt_avg = mean(agg_bat_avg))
+
+agg_batt_lay$agg_batt_avg <- round(agg_batt_lay$agg_batt_avg, digits = 3)
+
+ggplot(data = agg_batt_lay, 
+       aes(V3018, agg_batt_avg, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', 
+                               '(2) Female' = 'pink')) +
+  geom_text(aes(label = agg_batt_avg), 
+            position = position_dodge(), 
+            vjust=-0.25) + 
+  xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Aggrevated Battery by Gender")
+
+p_superiority(agg_bat_avg ~ V3018, data = dataset_4)
+#.56 [.53, .60]
+
+pirateplot(agg_bat_avg ~ V3018, data = dataset_4)
+
+
+
+
+```
+
+### Density Concentration of Battery ~ Sex
+
+The battery plots show the difference in the average intensity of battery on victims between genders.
+
+The bar plot shows that the average intensity is lesser for males (.475) than for females (.484) This would mean that female victims experience battery more intensely than women. However, this difference is not statistically significant. We checked the probability of superiority statistic, which tells us the percentage that someone picked at random from the male group will have a higher average intensity of battery than someone picked from the Female group. The probability of superiority was 0.49 with a 95% confidence interval ranging from [0.46, 0.53]. Because the confidence interval is so close to 0.50 (indicating a coin-flip chance) we cannot be confident that a victim of battery of one gender is more likely to have a more intense victimization than the other gender. 
+
+We can see the same uncertainty in the pirateplot(). This plot shows that the spread of the intensity of battery is extremely similar between male victims and female victims. Both genders have the majority of their responses around 0.4 and 0.7 intensity, and both taper off equally as the intensity increases, up to 1. Also, the error bars around the means of each gender overlap, which means we cannot say for certain that the mean of one gender’s intensity of battery victimization is greater than the other gender. Therefore, we cannot conclude that females experience a more intense battery than females.
+
+```{r}
+
+batt_lay <- dataset_5 %>% 
+  select(V3018, bat_avg) %>% 
+  na.omit() %>% 
+  group_by(V3018) %>%
+  summarize(batt_avg = mean(bat_avg))
+
+batt_lay$batt_avg <- round(batt_lay$batt_avg, digits = 3)
+
+ggplot(data = batt_lay, 
+       aes(V3018, batt_avg, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', 
+                    values = c('(1) Male' = 'dodgerblue', 
+                               '(2) Female' = 'pink')) +
+  geom_text(aes(label = batt_avg), 
+            position = position_dodge(), 
+            vjust=-0.25) + 
+  xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Battery by Gender")
+
+p_superiority(bat_avg ~ V3018, data = dataset_5)
+#.49 [.46, .53]
+
+pirateplot(bat_avg ~ V3018, data = dataset_5)
+
+
+
+```
+
+### Density Concentration of Sexual Assault ~ Sex
+
+The sexual assault plots show a different story than the rest of the variables. The bar graph shows the intensity of sexual assault experiences by victims separated by gender. It shows that women experience a much greater intensity of sexual assault than men on average.
+Unlike with the other variables, the probability of superiority statistic reinforces this divide. With men as the reference, the statistic was 0.35 with a [0.32, 0.38] 95% confidence interval. This means that there is only a 35% chance that a male experiences sexual assault at a greater intensity than females, which means there is a 75% chance that a female experiences sexual assault at a higher intensity. 
+The spread of the data also supports the difference between men and women in intensity of sexual assault. The pirateplot() shows that the spread of the data for women goes much higher than for men. The spread of the data for women goes all the way up to around 0.65, while the spread of data for men only goes up to 0.35. Also, women have more data clustered around the 0.35 intensity than men do. The vast majority of the data for the intensity of sexual assault for men is near 0. Also, the plot shows the average intensity of sexual assault for women looks to be around 0.7, while the average for men seems to be around 0.1. Since the error bars on these averages do not overlap, we can say that women experience a more intense sexual assault than men on average. 
+
+
+```{r}
+
+sa_lay <- dataset_6 %>% 
+  select(V3018, SA_avg) %>%
+  na.omit() %>% 
+  group_by(V3018) %>%
+  summarize(sa_avg = mean(SA_avg))
+
+sa_lay$sa_avg <- round(sa_lay$sa_avg, digits = 3)
+
+ggplot(data = sa_lay, 
+       aes(V3018, sa_avg, fill = V3018)) + 
+  geom_bar(stat = 'identity', width = 0.5) +
+  scale_fill_manual('Legend', values = c('(1) Male' = 'dodgerblue', 
+                                         '(2) Female' = 'pink')) +
+  geom_text(aes(label = sa_avg), 
+            position = position_dodge(), 
+            vjust=-0.25) + 
+  xlab("Gender") + 
+  ylab("Average Intensity") + 
+  ggtitle("Average Intensity of Sexual Assault by Gender")
+
+p_superiority(SA_avg ~ V3018, data = dataset_6)
+#.35 [.32, .38]
+
+pirateplot(SA_avg ~ V3018, data = dataset_6)
+
+```
+
+## Multiple Regression
+
+After creating a visual representation of the difference in instances of violent personal crime between genders, we wanted to learn *what is the correlation between attempts of violent crime and actual occurrence of violent crime*. To learn this, we conducted a multiple regression analysis between each variable of actual violent crime and the cumulative variable showing attempted violent crime and found some interesting results. We found that Battery and Aggravated Battery were both positively correlated with attempts of violent personal crime, and their highest unique predictor was attempted sexual assault. However, actual sexual assault was negatively correlated with all attempts of violent personal crime, with the strongest predictor also being attempted sexual assault.
+
+```{r warning = FALSE, message = FALSE}
+
+efa_data_1 <- dataset_6A %>%
+  select(IDPER,
+         att_batt_avg,
+         att_agg_batt_avg,
+         att_SA_avg) %>%
+  na.omit(efa_data_1)
+
+efa_data_2 <- dataset_6A %>%
+  select(IDPER,
+         bat_avg,
+         agg_bat_avg,
+         SA_avg) %>%
+  na.omit(efa_data_2)
+
+efa_data <- full_join(efa_data_1, efa_data_2, join_by(IDPER), relationship = "many-to-many")
+
+efa_data_final <- efa_data %>%
+  select(-IDPER)
+
+library(lm.beta)
+
+pairs.panels(efa_data_final, 
+             jiggle = TRUE, 
+             lm = TRUE,
+             ci = TRUE, 
+             pch = 20, 
+             #scale = TRUE, 
+             hist.col = "slateblue1",
+             na.rm = TRUE)
+
+multi_reg_1 <- lm(bat_avg ~ att_batt_avg + att_agg_batt_avg + att_SA_avg,
+                data = efa_data_final)
+summary(multi_reg_1)
+#R2 = .1109, highest unique att_SA_avg (.631)
+
+multi_reg_2 <- lm(agg_bat_avg ~ att_batt_avg + att_agg_batt_avg + att_SA_avg,
+                data = efa_data_final)
+summary(multi_reg_2)
+#R2 = .1125, highest unique - att_SA_avg (.446)
+
+multi_reg_3 <- lm(SA_avg ~ att_batt_avg + att_agg_batt_avg + att_SA_avg,
+                data = efa_data_final)
+summary(multi_reg_3)
+#R2 = .03564, highest unique = att_SA_avg (negatively correlated)
+
+
+```
+
+## Exploratory Factor Analysis (EFA)
+
+We were interested in learning whether these results were actually reflective of a systemic issue in the way criminal activity is reported, measured and charged in the field of criminal justice or if the results were indicative of a procedural error in our research. To explore this further, we conducted an exploratory factor analysis to check if our proposed model of attempted versus actual crime was the best way to evaluate the variables of interest.
+
+The vss function showed no inflection point in MAP values, which was our initial indicator that the results were better attributed to error on our part. Similarly, the scree plot recommended a 0 factor model, which tells us that our data compilation was likely incorrect. Even so, we compared our 2 factor model (attempts vs. actual) with a 1 factor model (all variables categorized as personal violent crime). 
+The RMSEA for the 1 factor model was .212 90% CI [.202, .233] and the RMSEA for 2 factor model was .231 90% CI [.216, .246]. Since our standard for adequate fit of model is RMSEA = .05 or below, neither of these models are a good fit. When we compared 90% CIs to compare goodness of fit between the two models, we computed .233-.202 = .31*2 = .62 and .246-.216 = .40, which was not <.62, therefore 1 factor model is not a reliably better fit than 2 factor.
+Furthermore, it is important to note that nfactors > 2 did not yield any result at all. 
+
+At this point, we thought these results probably occurred because we lost a lot of observations during our data cleaning process, and according to Revelle, since all our variables had communalities <.7 (except attempted battery), we needed greater number of subjects for our reliability model than what we had remaining after dropping NAs.
+
+```{r warning = FALSE, message = FALSE}
+
+vss(efa_data_final)
+
+scree(efa_data_final)
+
+fa(efa_data_final,
+   nfactors = 2, 
+   fm = "minres", 
+   rotate = "oblimin")
+#RMSEA = .231 [.216, .246]
+
+incident_efa <- fa(efa_data_final,
+   nfactors = 1,
+   fm = "minres",
+   rotate = "oblimin")
+
+#RMSEA = .212, [.202, .233]
+
+#for nfactors > 2, RMSEA not given.
+#RMSEA went in the opposite direction to the expectation 
+
+incident_efa$communalities
+#Sample size not large enough for most variables except attempted battery 
+#Potentially because we dropped NA
+
+```
+
+## Chronbach's Alpha
+
+To check this, we used Cronbach's alpha to measure internal consistency within our two factors. The alpha function indicated that our attempted SA variable needed to be reverse scored, which may have impacted our multiple regression conclusions that actual violent crime was best predicted by attempted sexual assault, when in fact it was likely the worst predictor. 
+In the attempted violent crime factor, if attempted SA was dropped, std.r value for chronbach’s alpha increased from .48 to .75, further confirming that attempted SA was coded as a separate type of crime, separate from battery and aggravated battery.
+Furthermore, we found that attempted (std.r = .89) and actual instances (std.r = .89) of battery were the most reliable variables in attempted and actual violent crime factors respectively. This is likely due to the higher number of instances of battery compared to aggravated or sexual assault.
+
+```{r message = FALSE, warning = FALSE}
+
+alpha_attempts <- efa_data_1 %>%
+  select(!IDPER)
+
+alpha(alpha_attempts)
+
+alpha_attempts_rev <- alpha_attempts %>%
+  mutate(att_batt_avg = 1 - att_batt_avg)
+
+alpha(alpha_attempts_rev)
+
+#std.alpha = .48
+#best item = att batt (.93), worst item = .30 att SA
+#reliability if att_SA_avg is dropped = .75
+
+alpha_actual <- efa_data_2 %>%
+  select(!IDPER)
+
+alpha(alpha_actual)
+
+alpha_actual_rev <- alpha_actual %>%
+  mutate(SA_avg = 1 - SA_avg)
+
+alpha(alpha_actual_rev)
+
+#std.alpha = .27
+#best item = batt (.89), worst item = .25 agg_batt
+#reliability if agg_bat_avg is dropped = .42
+
+```
+
+## Conclusions and Implications:
+
+### Demographics and Violent Personal Crime:
+Total number of incidents were almost the same for both Male and Female. However, there were a greater number of white respondents reporting being victimised than other races - likely due to overrepresentation in sample.
+Women were found to be reliably more likely to be sexually assaulted than men, however, the gender difference was not reliable for any other variable of violent crime.
+
+### Attempt vs. Actual instance of personal violent crime:
+We found a high positive correlation between battery, aggravated battery and attempted sexual assault, but actual sexual assault was negatively correlated. 
+Dimensions in our study	
+2 factor model chosen, EFA was inconclusive likely due to data selection and cleaning procedure. However, in the regression analysis we saw a great overlap between aggravated battery and battery.
+
+Battery and Aggravated battery are correlated since they are likely to occur together, however, sexual assault is not reported along with battery. That is, someone that was physically assaulted has more charges to file for the same assault (cumulative consequences), but sexual assault is coded separately and receives only one charge. The above conclusions have a larger systematic implication for why sexual assault cases are underreported and harder to prove and win in court, as compared to other personal violent crimes, since they are not treated in the same was as other violent crimes.
+
+## Future Directions:
+Given more time and resources, we want to look at other demographic variables such as race, socio-economic status, educational attainment and learn how they interact with gender and correlate with instances of personal violent crime. Furthermore, we would like to learn how to conduct these evaluations/EFA after coding missing data NAs so that we don't miss out on a lot of good conclusions. Future studies should also look at non-violent personal crimes and property crimes and analyze their relationship with the demographic variables listed above.
+
+## Ethical Reflection
+
+### Research Scope and Bias:
+As mentioned at the beginning of this report, this study was limited in its scope and resources, and is biased by the rudimentary knowledge of the researchers on criminal justice and data analysis procedures. 
+
+### Data Extraction 
+For ease of data extraction, this study only looked at 2023 data, instead of the available longitudinal concatenated file that contained incident reports over thirty years - therefore this study is only looking at a snapshot of data instead of impact of policy, global events such as the pandemic and recession on victimization rates in the USA.
+
+Moreover, within the 2023 NCVS file, we only extracted incident and person records, rather than analyzing the impact of household and geographical address - which are suggestive of socio-economic status - on the likelihood of victimisation. We also did not consider city vs. urban, income and other variables that interact with demographics of interest to our study to influence victimization rates. 
+
+From these two data sets, we manually reviewed the codebook and picked variables we thought would be relevant from the ICPSR data sets - a process that could have led to human error and missed variables that could be relevant to our study.
+
+
+### Data Cleaning/Analysis
+
+Another instance of missed observations include the cleaning procedure. residual and missing data were both coded as NA, even though they have different statistical relevance to research. 
+
+Furthermore, since our factor and regression analyses were not robust to NAs, we made the decision to drop all NA values, losing almost 200000 observations.
+Given more time, we would have conducted demographic analysis of missing data, which could have indicated whether certain demographics were being systematically excluded from our study due to higher rates of missing or NA data, which could be suggestive of bias or discrimination in data collection procedures.
+
+Although we wanted to present gender as more than binary, the available data encoded gender as sex assigned at birth and we were only able to draw comparisons between individuals coded as males and females.
+
+Although we were interested in race as well as gender, we were unable to conduct further analysis of race and its relationship with violent crime. This is because of overrepresentation of white people as compared to other races with lower number of respondents, which would have invalidated our conclusions. Moreover, if the respondent was coded as identifying into multiple races, they were all assigned as "mixed", and we were uncomfortable drawing unethical inferences about race from this skewed data.
+
+Lastly, our data cleaning procedures led us to inconclusive EFAs and unreliable regression analysis, which affected the internal and external validity of our study.
+
+
+
+
