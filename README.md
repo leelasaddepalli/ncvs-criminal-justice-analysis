@@ -4,8 +4,8 @@
 
 ---
 
-Research report linked [here]([https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project.pdf]) 
-Slide deck linked [here]([https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project%20Presentation.pdf])
+Research report linked [here][https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project.pdf]
+Slide deck linked [here][https://github.com/leelasaddepalli/ncvs-criminal-justice-analysis/blob/main/309%20Final%20Project%20Presentation.pdf]
 
 ## Overview
 
